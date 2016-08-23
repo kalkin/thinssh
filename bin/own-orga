@@ -4,7 +4,6 @@ set -e
 
 ID=$1
 ORGANIZATION=$2
-REPO=$3
 
 # Absolute path to this script, e.g. /home/user/bin/foo.sh
 SCRIPT=$(readlink -f "$0")
