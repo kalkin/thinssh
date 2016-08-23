@@ -23,6 +23,7 @@ _cgo_export.*
 _testmain.go
 
 *.exe
+data/ids/*
 *.test
 *.prof
 
