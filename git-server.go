@@ -123,7 +123,28 @@ func handleChannels(permissions *ssh.Permissions, chans <-chan ssh.NewChannel) {
 					handleEnv(channel, req)
 					ok = true
 				case "exec":
-					handleExec(id, channel, req)
+					command, ns, name := handleExec(id, channel, req)
+					cmd := exec.Command(command, id, ns, name)
+					cmd.Stdout = channel
+					cmd.Stderr = channel
+					cmd.Stdin = channel
+
+					err := cmd.Start()
+					if err != nil {
+						log.Printf("could not start command (%s)", err)
+						continue
+					}
+
+					// teardown session
+					go func() {
+						_, err := cmd.Process.Wait()
+						if err != nil {
+							log.Printf("failed to exit bash (%s)", err)
+						}
+						channel.Close()
+						log.Printf("session closed")
+					}()
+
 					ok = true
 				default:
 					log.Println(req.Type)
@@ -140,6 +161,7 @@ func handleChannels(permissions *ssh.Permissions, chans <-chan ssh.NewChannel) {
 				req.Reply(ok, nil)
 			}
 		}(requests)
+		defer channel.Close()
 	}
 }
 
@@ -158,7 +180,7 @@ func handleEnv(channel ssh.Channel, req *ssh.Request) {
 }
 
 // Payload: int: command size, string: command
-func handleExec(id string, ch ssh.Channel, req *ssh.Request) {
+func handleExec(id string, ch ssh.Channel, req *ssh.Request) (string, string, string) {
 	full_string := string(req.Payload[4:])
 	log.Println(full_string)
 	foo := strings.Split(full_string, " ")
@@ -170,15 +192,15 @@ func handleExec(id string, ch ssh.Channel, req *ssh.Request) {
 		ch.Write([]byte("usage: git-receive-pack <git-dir>\r\n"))
 		log.Println("no repo specified")
 		ch.Close()
-		return
+		return "", "", ""
 	}
 
-	repo, err := git_repo_str(foo[1])
-	if err != nil {
-		log.Println(err)
+	repo, repo_err := git_repo_str(foo[1])
+	if repo_err != nil {
+		log.Println(repo_err)
 		ch.Write([]byte("invalid repo path\r\n"))
 		ch.Close()
-		return
+		return "", "", ""
 	}
 	namespace, repo_name := filepath.Split(repo)
 	namespace = strings.Trim(namespace, "/")
@@ -193,17 +215,10 @@ func handleExec(id string, ch ssh.Channel, req *ssh.Request) {
 	if !valid {
 		ch.Write([]byte("command is not a GIT command\r\n"))
 		ch.Close()
-		return
+		return "", "", ""
 	}
 
-	log.Println("./bin/"+command, id, namespace, repo_name)
-	cmd := exec.Command("./bin/"+command, id, namespace, repo_name)
-
-	cmd.Stdout = ch
-	cmd.Stderr = ch
-	cmd.Stdin = ch
-
-	err = cmd.Start()
+	return "./bin/" + command, namespace, repo_name
 }
 
 func git_repo_str(unescaped_path string) (string, error) {
