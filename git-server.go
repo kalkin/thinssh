@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -84,7 +85,7 @@ func main() {
 		// Print incoming out-of-band Requests
 		go handleRequests(sshConn.Permissions, reqs)
 		// Accept all channels
-		go handleChannels(chans)
+		go handleChannels(sshConn.Permissions, chans)
 	}
 }
 func handleRequests(permissions *ssh.Permissions, reqs <-chan *ssh.Request) {
@@ -94,8 +95,9 @@ func handleRequests(permissions *ssh.Permissions, reqs <-chan *ssh.Request) {
 	}
 }
 
-func handleChannels(chans <-chan ssh.NewChannel) {
+func handleChannels(permissions *ssh.Permissions, chans <-chan ssh.NewChannel) {
 	// Service the incoming Channel channel.
+	id := permissions.CriticalOptions["fingerprint"]
 	for newChannel := range chans {
 		// Channels have a type, depending on the application level
 		// protocol intended. In the case of a shell, the type is
@@ -121,7 +123,8 @@ func handleChannels(chans <-chan ssh.NewChannel) {
 					handleEnv(channel, req)
 					ok = true
 				case "exec":
-					handleExec(channel, req)
+					handleExec(id, channel, req)
+					ok = true
 				default:
 					log.Println(req.Type)
 					log.Println(string(req.Payload))
@@ -155,7 +158,7 @@ func handleEnv(channel ssh.Channel, req *ssh.Request) {
 }
 
 // Payload: int: command size, string: command
-func handleExec(ch ssh.Channel, req *ssh.Request) {
+func handleExec(id string, ch ssh.Channel, req *ssh.Request) {
 	full_string := string(req.Payload[4:])
 	log.Println(full_string)
 	foo := strings.Split(full_string, " ")
@@ -177,15 +180,13 @@ func handleExec(ch ssh.Channel, req *ssh.Request) {
 		ch.Close()
 		return
 	}
-	ch.Write([]byte(repo + "\r\n"))
-	namespace, _ := filepath.Split(repo)
+	namespace, repo_name := filepath.Split(repo)
 	namespace = strings.Trim(namespace, "/")
-	ch.Write([]byte(namespace + "\r\n"))
+	repo_name = strings.Trim(repo_name, "/")
 
 	valid := false
 	for _, cmd := range gitCmds {
 		if command == cmd {
-			log.Println("DRIN")
 			valid = true
 		}
 	}
@@ -195,9 +196,14 @@ func handleExec(ch ssh.Channel, req *ssh.Request) {
 		return
 	}
 
-	req.Reply(true, nil)
-	ch.Write([]byte("well done!\r\n"))
-	ch.Close()
+	log.Println("./bin/"+command, id, namespace, repo_name)
+	cmd := exec.Command("./bin/"+command, id, namespace, repo_name)
+
+	cmd.Stdout = ch
+	cmd.Stderr = ch
+	cmd.Stdin = ch
+
+	err = cmd.Start()
 }
 
 func git_repo_str(unescaped_path string) (string, error) {
