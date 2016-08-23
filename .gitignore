@@ -4,6 +4,7 @@
 *.so
 
 *.swp
+host_key
 
 # Folders
 _obj
