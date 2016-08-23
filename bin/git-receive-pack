@@ -1,0 +1,40 @@
+#!/bin/sh
+
+set -e
+
+# Absolute path to this script, e.g. /home/user/bin/foo.sh
+SCRIPT=$(readlink -f "$0")
+# Absolute path this script is in, thus /home/user/bin
+SCRIPTPATH=$(dirname "$SCRIPT")
+BASEPATH=$(dirname "$SCRIPTPATH")
+DATAPATH="$BASEPATH/data"
+REPOPATH="$DATAPATH/repos"
+
+ID=$1
+ORGA=$2
+REPO=$3
+
+"$SCRIPTPATH"/create-id "$ID" 2>/dev/null || echo "Id already exists: $ID"
+if [ -d "$REPOPATH/$ORGA" ]; then
+    if "$SCRIPTPATH/check-permissions" "$ID" "$ORGA" ; then
+        # echo "Executing git-receive-pack now"
+        # git-receive-pack "$REPOPATH/$ORGA/$REPO"
+        git-receive-pack "$REPOPATH/$ORGA/$REPO"
+        exit 0
+    else
+        if "$SCRIPTPATH/is-abandoned" "$ORGA" ; then
+            # echo "Organization $ORGA is abandoned: Assigning it to you"
+            "$SCRIPTPATH"/own-orga "$ID" "$ORGA"
+            # echo "Executing git-receive-pack now"
+            git-receive-pack "$REPOPATH/$ORGA/$REPO"
+            exit 0
+        else
+            echo Not enough permissions
+            exit 2
+        fi
+    fi
+    
+else
+    echo "TODO INIT REPO"
+    exit 0
+fi
