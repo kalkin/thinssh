@@ -6,4 +6,9 @@ SCRIPT=$(readlink -f "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
 BASEPATH=$(dirname "$SCRIPTPATH")
 
-mkdir "$BASEPATH/data/ids/$1"
+ID_DIR="$BASEPATH/data/ids/$1"
+if [ -d "$ID_DIR" ]; then
+    exit 0
+else
+    mkdir "$ID_DIR"
+fi
