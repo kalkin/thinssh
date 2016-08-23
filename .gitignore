@@ -27,3 +27,4 @@ _testmain.go
 *.out
 
 data/repos/*
+data/ids/
