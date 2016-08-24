@@ -1,7 +1,5 @@
 #!/bin/sh
 
-set -e
-
 # Absolute path to this script, e.g. /home/user/bin/foo.sh
 SCRIPT=$(readlink -f "$0")
 # Absolute path this script is in, thus /home/user/bin
@@ -14,27 +12,38 @@ ID=$1
 ORGA=$2
 REPO=$3
 
-"$SCRIPTPATH"/create-id "$ID" 2>/dev/null || echo "Id already exists: $ID"
-if [ -d "$REPOPATH/$ORGA" ]; then
-    if "$SCRIPTPATH/check-permissions" "$ID" "$ORGA" ; then
-        # echo "Executing git-receive-pack now"
-        # git-receive-pack "$REPOPATH/$ORGA/$REPO"
-        git-receive-pack "$REPOPATH/$ORGA/$REPO"
-        exit 0
-    else
-        if "$SCRIPTPATH/is-abandoned" "$ORGA" ; then
-            # echo "Organization $ORGA is abandoned: Assigning it to you"
-            "$SCRIPTPATH"/own-orga "$ID" "$ORGA"
-            # echo "Executing git-receive-pack now"
-            git-receive-pack "$REPOPATH/$ORGA/$REPO"
-            exit 0
-        else
-            echo Not enough permissions
-            exit 2
-        fi
-    fi
-    
+"$SCRIPTPATH"/create-id "$ID" 2>/dev/null 
+log() {
+    echo "$1" >> "$BASEPATH/log"
+}
+
+create_orga() {
+    mkdir -p "$REPOPATH/$ORGA"
+    "$SCRIPTPATH"/own-orga "$ID" "$ORGA"
+}
+
+init_repo() {
+    mkdir -p "$REPOPATH/$ORGA/$REPO"
+    cd "$REPOPATH/$ORGA/$REPO" && git init --bare . 1>>"$BASEPATH/log" 2>>"$BASEPATH/log"
+}
+
+log "./bin/git-receive-pack $1 $2 $3"
+if [ ! -d "$REPOPATH/$ORGA" ]; then
+    log "Create orga $ORGA"
+    create_orga
+fi
+
+if [ ! -d "$REPOPATH/$ORGA/$REPO" ]; then
+    log "Init repo $REPO"
+    init_repo
+fi
+
+if "$SCRIPTPATH/check-permissions" "$ID" "$ORGA" ; then
+# echo "Executing git-receive-pack now"
+# git-receive-pack "$REPOPATH/$ORGA/$REPO"
+    log "Preparing push to $REPOPATH/$ORGA/$REPO"
+    git-receive-pack "$REPOPATH/$ORGA/$REPO"
 else
-    echo "TODO INIT REPO"
-    exit 0
+    echo Not enough permissions
+    exit 1
 fi
