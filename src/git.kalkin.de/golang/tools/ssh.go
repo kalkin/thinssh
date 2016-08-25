@@ -117,6 +117,9 @@ func handleExec(id string, channel ssh.Channel, req *ssh.Request) (*exec.Cmd, er
 	}
 	log.Printf("Handling exec %s: %s", command, args)
 	foo := strings.Split(strings.Trim(args[0], "'./"), "/")
+	if len(foo) == 1 {
+		return nil, fmt.Errorf("Provided weird url %s", args[0])
+	}
 	log.Printf(command, id, foo[0], foo[1])
 	cmd := exec.Command(command, id, foo[0], foo[1])
 	return cmd, nil
