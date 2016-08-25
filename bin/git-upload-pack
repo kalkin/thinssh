@@ -12,6 +12,6 @@ REPOPATH="$DATAPATH/repos"
 
 ID=$1
 ORGA=$2
-REPO=$3
+REPO=$(basename "$3" ".git")
 
 git-upload-pack "$REPOPATH/$ORGA/$REPO"
