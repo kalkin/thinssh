@@ -14,8 +14,9 @@ const REPOS_DIR = "./data/repos"
 
 var (
 	app                  = kingpin.New("thinssh", "A simple & dumb SSH server")
-	config               = app.Command("config", "Print configuration").Alias("conf").Alias("c")
-	configDefault        = config.Flag("default", "Print the DEFAULT configuration").Short('d').Bool()
+	configCmd            = app.Command("config", "Print configuration").Alias("conf").Alias("c")
+	configDefault        = configCmd.Flag("default", "Print the DEFAULT configuration").Short('d').Bool()
+	runCmd               = app.Command("run", "Run baby run!").Alias("r").Default()
 	hostPrivateKeySigner ssh.Signer
 )
 
@@ -37,31 +38,26 @@ func init() {
 }
 
 func main() {
+	c := GetConfig()
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
-	case config.FullCommand():
-		println("DRIN")
-	default:
-		run()
+	case configCmd.FullCommand():
+		if *configDefault {
+			PrintDefaultConfig()
+			os.Exit(0)
+		} else {
+			PrintConfig(c)
+		}
+	case runCmd.FullCommand():
+		run(c)
 	}
 }
 
-func run() {
-
+func run(c Config) {
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: KeyAuth,
 	}
 	config.AddHostKey(hostPrivateKeySigner)
-
-	port := "2222"
-	if os.Getenv("GIT_SERVER_PORT") != "" {
-		port = os.Getenv("GIT_SERVER_PORT")
-	}
-	host := "0.0.0.0"
-	if os.Getenv("GIT_SERVER_HOST") != "" {
-		host = os.Getenv("GIT_SERVER_HOST")
-	}
-
-	listener := GetListener(host, port)
+	listener := GetListener(c.Host, c.Port)
 
 	for {
 		// Once a ServerConfig has been configured, connections can be accepted.
