@@ -140,10 +140,14 @@ func sendErrToClient(channel ssh.Channel, req *ssh.Request, err error) {
 }
 
 func validateCommand(command string) error {
-	gitCmds := []string{"git-receive-pack", "git-upload-pack", "list-orga"}
+	command = BIN_DIR + "/" + command
+	allowedCmds, err := filepath.Glob(BIN_DIR + "/[:alnum:]*")
+	if err != nil {
+		return err
+	}
 
-	for _, cmd := range gitCmds {
-		if command == cmd {
+	for _, cmd := range allowedCmds {
+		if command == "./"+cmd {
 			return nil
 		}
 	}
