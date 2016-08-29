@@ -19,3 +19,6 @@
 [submodule "vendor/github.com/alecthomas/units"]
 	path = vendor/github.com/alecthomas/units
 	url = https://github.com/alecthomas/units
+[submodule "vendor/github.com/go-yaml/yaml"]
+	path = vendor/github.com/go-yaml/yaml
+	url = https://github.com/go-yaml/yaml
