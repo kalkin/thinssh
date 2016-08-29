@@ -29,4 +29,19 @@ data/ids/*
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+host_key*
+bin/asmfmt
+bin/errcheck
+bin/gocode
+bin/godef
+bin/gogetdoc
+bin/goimports
+bin/golint
+bin/gometalinter
+bin/gorename
+bin/gotags
+bin/guru
+bin/impl
+bin/motion
 
+log
