@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/alecthomas/kingpin"
 	"io"
 	"io/ioutil"
 	"log"
@@ -12,6 +13,9 @@ import (
 const REPOS_DIR = "./data/repos"
 
 var (
+	app                  = kingpin.New("thinssh", "A simple & dumb SSH server")
+	config               = app.Command("config", "Print configuration").Alias("conf").Alias("c")
+	configDefault        = config.Flag("default", "Print the DEFAULT configuration").Short('d').Bool()
 	hostPrivateKeySigner ssh.Signer
 )
 
@@ -33,6 +37,16 @@ func init() {
 }
 
 func main() {
+	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+	case config.FullCommand():
+		println("DRIN")
+	default:
+		run()
+	}
+}
+
+func run() {
+
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: KeyAuth,
 	}
