@@ -3,6 +3,7 @@ package tools
 import (
 	"crypto/sha256"
 	"fmt"
+	"github.com/mattn/go-shellwords"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"log"
@@ -13,7 +14,8 @@ import (
 )
 
 const ID_DIR = "./data/id/"
-const ORG_DIR = "./data/repos/"
+const ORG_DIR = "./data/repos"
+const BIN_DIR = "./bin"
 
 func PublicKeyStr(pubkey ssh.PublicKey) string {
 	h := sha256.New()
@@ -57,28 +59,28 @@ func HandleServerConn(permissions *ssh.Permissions, chans <-chan ssh.NewChannel)
 			for req := range in {
 				switch req.Type {
 				case "exec":
-					command, err := handleExec(id, ch, req)
+					execCmd, err := execute(id, req)
 					if err != nil {
 						sendErrToClient(ch, req, err)
 						return
 					}
-					stdout, err := command.StdoutPipe()
+					stdout, err := execCmd.StdoutPipe()
 					if err != nil {
 						sendErrToClient(ch, req, err)
 						return
 					}
-					stderr, err := command.StderrPipe()
+					stderr, err := execCmd.StderrPipe()
 					if err != nil {
 						sendErrToClient(ch, req, err)
 						return
 					}
-					stdin, err := command.StdinPipe()
+					stdin, err := execCmd.StdinPipe()
 					if err != nil {
 						sendErrToClient(ch, req, err)
 						return
 					}
 
-					err = command.Start()
+					err = execCmd.Start()
 					if err != nil {
 						sendErrToClient(ch, req, err)
 						return
@@ -89,7 +91,7 @@ func HandleServerConn(permissions *ssh.Permissions, chans <-chan ssh.NewChannel)
 					io.Copy(ch, stdout)
 					io.Copy(ch.Stderr(), stderr)
 					// teardown session
-					if p, err := command.Process.Wait(); err != nil {
+					if p, err := execCmd.Process.Wait(); err != nil {
 						sendErrToClient(ch, req, err)
 						return
 					} else {
@@ -109,20 +111,19 @@ func HandleServerConn(permissions *ssh.Permissions, chans <-chan ssh.NewChannel)
 
 }
 
-func handleExec(id string, channel ssh.Channel, req *ssh.Request) (*exec.Cmd, error) {
+func execute(id string, req *ssh.Request) (*exec.Cmd, error) {
 	full_string := string(req.Payload[4:])
-	command, args, err := CommandArgs(full_string)
+	cmd, err := shellwords.Parse(full_string)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Handling exec %s: %s", command, args)
-	foo := strings.Split(strings.Trim(args[0], "'./"), "/")
-	if len(foo) == 1 {
-		return nil, fmt.Errorf("Provided weird url %s", args[0])
+	if err = validateCommand(cmd[0]); err != nil {
+		return nil, err
 	}
-	log.Printf(command, id, foo[0], foo[1])
-	cmd := exec.Command(command, id, foo[0], foo[1])
-	return cmd, nil
+	log.Printf("%d", cmd)
+	execCmd := exec.Command(BIN_DIR+"/"+cmd[0], cmd[1:]...)
+	execCmd.Env = append(execCmd.Env, fmt.Sprintf("USER_TOKEN=%s", id))
+	return execCmd, nil
 }
 
 func reply(req *ssh.Request, b bool) {
@@ -138,27 +139,16 @@ func sendErrToClient(channel ssh.Channel, req *ssh.Request, err error) {
 	reply(req, false)
 }
 
-func CommandArgs(s string) (string, []string, error) {
-	tmp := strings.Split(s, " ")
-	gitCmds := []string{"git-receive-pack", "git-upload-pack"}
+func validateCommand(command string) error {
+	gitCmds := []string{"git-receive-pack", "git-upload-pack", "list-orga"}
 
-	valid := false
 	for _, cmd := range gitCmds {
-		if tmp[0] == cmd {
-			valid = true
-			break
+		if command == cmd {
+			return nil
 		}
 	}
-	if !valid {
-		return tmp[0], nil, fmt.Errorf("not a valid command %s\n", tmp[0])
-	}
+	return fmt.Errorf("not a valid command %s\n", command)
 
-	tmp[0] = "./bin/" + tmp[0]
-
-	if len(tmp) > 1 {
-		return tmp[0], tmp[1:], nil
-	}
-	return tmp[0], nil, nil
 }
 
 func git_repo_str(unescaped_path string) (string, error) {
