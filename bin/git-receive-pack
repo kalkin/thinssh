@@ -8,9 +8,9 @@ BASEPATH=$(dirname "$SCRIPTPATH")
 DATAPATH="$BASEPATH/data"
 REPOPATH="$DATAPATH/repos"
 
-ID=$1
-ORGA=$2
-REPO=$3
+ID="$USER_TOKEN"
+ORGA=$(echo "$1"|cut -d'/' -f1)
+REPO=$(echo "$1"|cut -d'/' -f2-)
 
 "$SCRIPTPATH"/create-id "$ID" 2>/dev/null 
 log() {
