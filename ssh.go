@@ -83,17 +83,17 @@ func HandleServerConn(permissions *ssh.Permissions, chans <-chan ssh.NewChannel,
 						return
 					}
 
-					reply(req, true)
 					go io.Copy(stdin, ch)
 					io.Copy(ch, stdout)
 					io.Copy(ch.Stderr(), stderr)
 					// teardown session
 					if p, err := execCmd.Process.Wait(); err != nil {
 						sendErrToClient(ch, req, err)
+						reply(req, false)
 						return
 					} else {
-						log.Printf("Exit %s", p.Exited())
 						log.Printf("Success %s", p.Success())
+						reply(req, p.Success())
 						log.Println("Closing Channel")
 						ch.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
 						return
@@ -138,13 +138,15 @@ func sendErrToClient(channel ssh.Channel, req *ssh.Request, err error) {
 
 func validateCommand(command string, binPath string) error {
 	command = binPath + "/" + command
-	allowedCmds, err := filepath.Glob(binPath + "/[:alnum:]*")
+	allowedCmds, err := filepath.Glob(binPath + "/*")
+	log.Println(allowedCmds)
 	if err != nil {
 		return err
 	}
 
 	for _, cmd := range allowedCmds {
-		if command == "./"+cmd {
+		log.Println(cmd)
+		if command == cmd {
 			return nil
 		}
 	}
