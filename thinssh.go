@@ -1,15 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"github.com/alecthomas/kingpin"
+	"golang.org/x/crypto/ssh"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
-
-	"golang.org/x/crypto/ssh"
 )
 
 const REPOS_DIR = "./data/repos"
@@ -20,7 +17,6 @@ var (
 	configDefault        = configCmd.Flag("default", "Print the DEFAULT configuration").Short('d').Bool()
 	runCmd               = app.Command("run", "Run baby run!").Alias("r").Default()
 	hostPrivateKeySigner ssh.Signer
-	binPath              string
 )
 
 func init() {
@@ -42,12 +38,6 @@ func init() {
 
 func main() {
 	c := GetConfig()
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		log.Fatal(err)
-	}
-	binPath = dir + "/bin"
-	fmt.Println(dir)
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 	case configCmd.FullCommand():
 		if *configDefault {
@@ -95,7 +85,7 @@ func run(c Config) {
 			log.Println("SSH: Connection from %s (%s)", sConn.RemoteAddr(), sConn.ClientVersion())
 			// The incoming Request channel must be serviced.
 			go ssh.DiscardRequests(reqs)
-			go HandleServerConn(sConn.Permissions, chans, binPath)
+			go HandleServerConn(sConn.Permissions, chans, c.BinPath)
 		}()
 	}
 }
