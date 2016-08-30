@@ -1,6 +1,0 @@
-#!/bin/sh
-if [ -z "${USER_TOKEN+x}" ]; then
-    echo "No user token provided" >&2 && exit 2
-else
-    echo "$USER_TOKEN" && exit 0
-fi
