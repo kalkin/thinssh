@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 require_clean_work_tree () {
 	git rev-parse --verify HEAD >/dev/null || exit 1
 	git update-index -q --refresh
