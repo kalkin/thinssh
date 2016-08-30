@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 )
 
@@ -15,8 +16,9 @@ port: 2222
 ...`
 
 type Config struct {
-	Host string
-	Port string
+	Host    string
+	Port    string
+	BinPath string
 }
 
 func GetConfig() Config {
@@ -43,6 +45,11 @@ func getDefaultConfig() Config {
 	if err != nil {
 		log.Panicf("eror: %v", err)
 	}
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Panicf("eror: %v", err)
+	}
+	c.BinPath = path.Join(dir, "bin")
 	return c
 }
 
