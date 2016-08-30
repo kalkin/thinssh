@@ -13,10 +13,6 @@ import (
 	"strings"
 )
 
-const ID_DIR = "./data/id/"
-const ORG_DIR = "./data/repos"
-const BIN_DIR = "./bin"
-
 func PublicKeyStr(pubkey ssh.PublicKey) string {
 	h := sha256.New()
 	h.Write(pubkey.Marshal())
@@ -41,8 +37,9 @@ func GetListener(host string, port string) net.Listener {
 	return listener
 }
 
-func HandleServerConn(permissions *ssh.Permissions, chans <-chan ssh.NewChannel) {
+func HandleServerConn(permissions *ssh.Permissions, chans <-chan ssh.NewChannel, binaryPath string) {
 	id := permissions.CriticalOptions["fingerprint"]
+	log.Printf("Welcoming user: %s", id)
 	for newChan := range chans {
 		if newChan.ChannelType() != "session" {
 			newChan.Reject(ssh.UnknownChannelType, "unknown channel type")
@@ -59,7 +56,7 @@ func HandleServerConn(permissions *ssh.Permissions, chans <-chan ssh.NewChannel)
 			for req := range in {
 				switch req.Type {
 				case "exec":
-					execCmd, err := execute(id, req)
+					execCmd, err := execute(id, req, binaryPath)
 					if err != nil {
 						sendErrToClient(ch, req, err)
 						return
@@ -111,17 +108,17 @@ func HandleServerConn(permissions *ssh.Permissions, chans <-chan ssh.NewChannel)
 
 }
 
-func execute(id string, req *ssh.Request) (*exec.Cmd, error) {
+func execute(id string, req *ssh.Request, binaryPath string) (*exec.Cmd, error) {
 	full_string := string(req.Payload[4:])
 	cmd, err := shellwords.Parse(full_string)
 	if err != nil {
 		return nil, err
 	}
-	if err = validateCommand(cmd[0]); err != nil {
+	if err = validateCommand(cmd[0], binaryPath); err != nil {
 		return nil, err
 	}
 	log.Printf("%d", cmd)
-	execCmd := exec.Command(BIN_DIR+"/"+cmd[0], cmd[1:]...)
+	execCmd := exec.Command(binaryPath+"/"+cmd[0], cmd[1:]...)
 	execCmd.Env = append(execCmd.Env, fmt.Sprintf("USER_TOKEN=%s", id))
 	return execCmd, nil
 }
@@ -139,9 +136,9 @@ func sendErrToClient(channel ssh.Channel, req *ssh.Request, err error) {
 	reply(req, false)
 }
 
-func validateCommand(command string) error {
-	command = BIN_DIR + "/" + command
-	allowedCmds, err := filepath.Glob(BIN_DIR + "/[:alnum:]*")
+func validateCommand(command string, binPath string) error {
+	command = binPath + "/" + command
+	allowedCmds, err := filepath.Glob(binPath + "/[:alnum:]*")
 	if err != nil {
 		return err
 	}

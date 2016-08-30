@@ -86,7 +86,7 @@ func run(c Config) {
 			log.Println("SSH: Connection from %s (%s)", sConn.RemoteAddr(), sConn.ClientVersion())
 			// The incoming Request channel must be serviced.
 			go ssh.DiscardRequests(reqs)
-			go HandleServerConn(sConn.Permissions, chans)
+			go HandleServerConn(sConn.Permissions, chans, "./scm-scripts/")
 		}()
 	}
 }
